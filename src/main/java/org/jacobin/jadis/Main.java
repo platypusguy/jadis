@@ -1,72 +1,32 @@
 /*
- * Copyright (c) 2007, 2016, Oracle and/or its affiliates. All rights reserved.
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ * Copyright (c) 2021 by Andrew Binstock.
  *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.  Oracle designates this
- * particular file as subject to the "Classpath" exception as provided
- * by Oracle in the LICENSE file that accompanied this code.
+ * Portions of this file are copyright Oracle Corp.
+ * Those portions are licensed under GPL v. 2.0
+ * with the Oracle classpath exception. Due to the
+ * requirements of that license, the portions that
+ * are copyrighted by Andrew Binstock are obliged
+ * to use the same terms and requirements.
  *
- * This code is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * version 2 for more details (a copy is included in the LICENSE file that
- * accompanied this code).
- *
- * You should have received a copy of the GNU General Public License version
- * 2 along with this work; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
- * or visit www.oracle.com if you need additional information or have any
- * questions.
  */
 
 package org.jacobin.jadis;
 
 import java.io.PrintWriter;
-import java.util.spi.ToolProvider;
 
-/**
- *  Main entry point.
- *
- *  <p><b>This is NOT part of any supported API.
- *  If you write code that depends on this, you do so at your own risk.
- *  This code and its internal interfaces are subject to change or
- *  deletion without notice.</b>
+/*
+ * where all the fun begins...
+ * @author alb (@platypusguy)
  */
 public class Main {
-    /**
-     * Main entry point for the launcher.
-     * Note: This method calls System.exit.
-     * @param args command line arguments
-     */
-    public static void main(String[] args) {
-        JavapTask t = new JavapTask();
-        int rc = t.run(args);
-        System.exit(rc);
-    }
 
     /**
-     * Entry point that does <i>not</i> call System.exit.
-     * @param args command line arguments
-     * @param out output stream
-     * @return an exit code. 0 means success, non-zero means an error occurred.
+     * @param args command-line arguments
      */
-    public static int run(String[] args, PrintWriter out) {
+    public static void main( String[] args ) {
+        PrintWriter out = new PrintWriter( System.out );
         JavapTask t = new JavapTask();
-        t.setLog(out);
-        return t.run(args);
-    }
-
-    public static class JavapToolProvider implements ToolProvider {
-        public String name() {
-            return "javap";
-        }
-
-        public int run(PrintWriter out, PrintWriter err, String... args) {
-            return Main.run(args, out);
-        }
+        t.setLog( out );
+        t.run( args );
     }
 }
