@@ -1,12 +1,12 @@
 /*
  * Copyright (c) 2021 by Andrew Binstock.
- * Portions are copyright Oracle Corp.
- * The latter are licensed under GPL v. 2.0 with
- * the Oracle classpath exception. Due to the
- * requirements of that license, the portions
- * that are copyrighted by Andrew Binstock
- * are licensed using the same terms and
- * requirements.
+ *
+ * Portions of this file are copyright Oracle Corp.
+ * Those portions are licensed under GPL v. 2.0
+ * with the Oracle classpath exception. Due to the
+ * requirements of that license, the portions that
+ * are copyrighted by Andrew Binstock are licensed
+ * using the same terms and requirements.
  */
 
 package org.jacobin.jadis;
@@ -54,282 +54,16 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 
 import org.jacobin.jadis.classfile.*;
+import org.jacobin.jadis.exceptions.InternalError;
+
+import static org.jacobin.jadis.Option.recognizedOptions;
 
 /**
  *  "Main" class for javap, normally accessed from the command line
  *  via Main, or from JSR199 via DisassemblerTool.
- *
- *  <p><b>This is NOT part of any supported API.
- *  If you write code that depends on this, you do so at your own risk.
- *  This code and its internal interfaces are subject to change or
- *  deletion without notice.</b>
  */
 public class JavapTask implements Messages {
 //    public class JavapTask implements DisassemblerTool.DisassemblerTask, Messages { //alb
-    public class BadArgs extends Exception {
-        static final long serialVersionUID = 8765093759964640721L;
-        BadArgs(String key, Object... args) {
-            super(JavapTask.this.getMessage(key, args));
-            this.key = key;
-            this.args = args;
-        }
-
-        BadArgs showUsage(boolean b) {
-            showUsage = b;
-            return this;
-        }
-
-        final String key;
-        final Object[] args;
-        boolean showUsage;
-    }
-
-    static abstract class Option {
-        Option(boolean hasArg, String... aliases) {
-            this.hasArg = hasArg;
-            this.aliases = aliases;
-        }
-
-        boolean matches(String opt) {
-            for (String a: aliases) {
-                if (a.equals(opt))
-                    return true;
-            }
-            return false;
-        }
-
-        boolean ignoreRest() {
-            return false;
-        }
-
-        abstract void process(JavapTask task, String opt, String arg) throws BadArgs;
-
-        final boolean hasArg;
-        final String[] aliases;
-    }
-
-    static final Option[] recognizedOptions = {
-
-        new Option(false, "-help", "--help", "-?", "-h") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.help = true;
-            }
-        },
-
-        new Option(false, "-version") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.version = true;
-            }
-        },
-
-        new Option(false, "-fullversion") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.fullVersion = true;
-            }
-        },
-
-        new Option(false, "-v", "-verbose", "-all") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.verbose = true;
-                task.options.showDescriptors = true;
-                task.options.showFlags = true;
-                task.options.showAllAttrs = true;
-            }
-        },
-
-        new Option(false, "-l") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.showLineAndLocalVariableTables = true;
-            }
-        },
-
-        new Option(false, "-public") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.accessOptions.add(opt);
-                task.options.showAccess = AccessFlags.ACC_PUBLIC;
-            }
-        },
-
-        new Option(false, "-protected") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.accessOptions.add(opt);
-                task.options.showAccess = AccessFlags.ACC_PROTECTED;
-            }
-        },
-
-        new Option(false, "-package") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.accessOptions.add(opt);
-                task.options.showAccess = 0;
-            }
-        },
-
-        new Option(false, "-p", "-private") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                if (!task.options.accessOptions.contains("-p") &&
-                        !task.options.accessOptions.contains("-private")) {
-                    task.options.accessOptions.add(opt);
-                }
-                task.options.showAccess = AccessFlags.ACC_PRIVATE;
-            }
-        },
-
-        new Option(false, "-c") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.showDisassembled = true;
-            }
-        },
-
-        new Option(false, "-s") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.showDescriptors = true;
-            }
-        },
-
-        new Option(false, "-sysinfo") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.sysInfo = true;
-            }
-        },
-
-//        new Option(false, "-XDdetails") {
-//            @Override
-//            void process(JavapTask task, String opt, String arg) {
-//                task.options.details = EnumSet.allOf(InstructionDetailWriter.Kind.class);
-//            }
-//
-//        },
-
-        new Option(false, "-XDdetails:") {
-            @Override
-            boolean matches(String opt) {
-                int sep = opt.indexOf(":");
-                return sep != -1 && super.matches(opt.substring(0, sep + 1));
-            }
-
-            @Override
-            void process(JavapTask task, String opt, String arg) throws BadArgs {
-                int sep = opt.indexOf(":");
-                for (String v: opt.substring(sep + 1).split("[,: ]+")) {
-                    if (!handleArg(task, v))
-                        throw task.new BadArgs("err.invalid.arg.for.option", v);
-                }
-            }
-
-            boolean handleArg(JavapTask task, String arg) {
-                if (arg.length() == 0)
-                    return true;
-
-//                if (arg.equals("all")) {
-//                    task.options.details = EnumSet.allOf(InstructionDetailWriter.Kind.class);
-//                    return true;
-//                }
-
-                boolean on = true;
-                if (arg.startsWith("-")) {
-                    on = false;
-                    arg = arg.substring(1);
-                }
-
-//                for (InstructionDetailWriter.Kind k: InstructionDetailWriter.Kind.values()) {
-//                    if (arg.equalsIgnoreCase(k.option)) {
-//                        if (on)
-//                            task.options.details.add(k);
-//                        else
-//                            task.options.details.remove(k);
-//                        return true;
-//                    }
-//                }
-                return false;
-            }
-        },
-
-        new Option(false, "-constants") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.showConstants = true;
-            }
-        },
-
-        new Option(false, "-XDinner") {
-            @Override
-            void process(JavapTask task, String opt, String arg) {
-                task.options.showInnerClasses = true;
-            }
-        },
-
-        new Option(false, "-XDindent:") {
-            @Override
-            boolean matches(String opt) {
-                int sep = opt.indexOf(":");
-                return sep != -1 && super.matches(opt.substring(0, sep + 1));
-            }
-
-            @Override
-            void process(JavapTask task, String opt, String arg) throws BadArgs {
-                int sep = opt.indexOf(":");
-                try {
-                    int i = Integer.valueOf(opt.substring(sep + 1));
-                    if (i > 0) // silently ignore invalid values
-                        task.options.indentWidth = i;
-                } catch (NumberFormatException e) {
-                }
-            }
-        },
-
-        new Option(false, "-XDtab:") {
-            @Override
-            boolean matches(String opt) {
-                int sep = opt.indexOf(":");
-                return sep != -1 && super.matches(opt.substring(0, sep + 1));
-            }
-
-            @Override
-            void process(JavapTask task, String opt, String arg) throws BadArgs {
-                int sep = opt.indexOf(":");
-                try {
-                    int i = Integer.valueOf(opt.substring(sep + 1));
-                    if (i > 0) // silently ignore invalid values
-                        task.options.tabColumn = i;
-                } catch (NumberFormatException e) {
-                }
-            }
-        },
-
-        new Option(true, "--module", "-m") {
-            @Override
-            void process(JavapTask task, String opt, String arg) throws BadArgs {
-                task.options.moduleName = arg;
-            }
-        },
-
-        // this option is processed by the launcher, and cannot be used when invoked via
-        // an API like ToolProvider. It exists here to be documented in the command-line help.
-        new Option(false, "-J") {
-            @Override
-            boolean matches(String opt) {
-                return opt.startsWith("-J");
-            }
-
-            @Override
-            void process(JavapTask task, String opt, String arg) throws BadArgs {
-                throw task.new BadArgs("err.only.for.launcher");
-            }
-        }
-
-    };
 
     public JavapTask() {
         context = new Context();
@@ -338,69 +72,12 @@ public class JavapTask implements Messages {
         attributeFactory = new Attribute.Factory();
     }
 
-    public JavapTask(Writer out,
-            JavaFileManager fileManager,
-            DiagnosticListener<? super JavaFileObject> diagnosticListener) {
-        this();
-        this.log = getPrintWriterForWriter(out);
-        this.fileManager = fileManager;
-        this.diagnosticListener = diagnosticListener;
-    }
-
-    public JavapTask(Writer out,
-            JavaFileManager fileManager,
-            DiagnosticListener<? super JavaFileObject> diagnosticListener,
-            Iterable<String> options,
-            Iterable<String> classes) {
-        this(out, fileManager, diagnosticListener);
-
-        this.classes = new ArrayList<>();
-        for (String classname: classes) {
-            Objects.requireNonNull(classname);
-            this.classes.add(classname);
-        }
-
-        try {
-            if (options != null)
-                handleOptions(options, false);
-        } catch (BadArgs e) {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-    }
-
-    public void setLocale(Locale locale) {
-        if (locale == null)
-            locale = Locale.getDefault();
-        task_locale = locale;
-    }
-
-    public void setLog(Writer log) {
-        this.log = getPrintWriterForWriter(log);
-    }
-
-    public void setLog(OutputStream s) {
-        setLog(getPrintWriterForStream(s));
+    public void setLog( Writer log ) {
+        this.log = (PrintWriter) log;
     }
 
     private static PrintWriter getPrintWriterForStream(OutputStream s) {
         return new PrintWriter(s == null ? System.err : s, true);
-    }
-
-    private static PrintWriter getPrintWriterForWriter(Writer w) {
-        if (w == null)
-            return getPrintWriterForStream(null);
-        else if (w instanceof PrintWriter)
-            return (PrintWriter) w;
-        else
-            return new PrintWriter(w, true);
-    }
-
-    public void setDiagnosticListener(DiagnosticListener<? super JavaFileObject> dl) {
-        diagnosticListener = dl;
-    }
-
-    public void setDiagnosticListener(OutputStream s) {
-        setDiagnosticListener(getDiagnosticListenerForStream(s));
     }
 
     private DiagnosticListener<JavaFileObject> getDiagnosticListenerForStream(OutputStream s) {
@@ -408,7 +85,7 @@ public class JavapTask implements Messages {
     }
 
     private DiagnosticListener<JavaFileObject> getDiagnosticListenerForWriter(Writer w) {
-        final PrintWriter pw = getPrintWriterForWriter(w);
+        final PrintWriter pw = (PrintWriter) w;
         return diagnostic -> {
             switch (diagnostic.getKind()) {
                 case ERROR:
@@ -438,7 +115,7 @@ public class JavapTask implements Messages {
     int run(String[] args) {
         try {
             try {
-                handleOptions(args);
+                handleOptions( Arrays.asList( args ), true );
 
                 // the following gives consistent behavior with javac
                 if (classes == null || classes.size() == 0) {
@@ -447,7 +124,6 @@ public class JavapTask implements Messages {
                     else
                         return EXIT_CMDERR;
                 }
-
                 return run();
             } finally {
                 if (defaultFileManager != null) {
@@ -455,7 +131,7 @@ public class JavapTask implements Messages {
                         defaultFileManager.close();
                         defaultFileManager = null;
                     } catch (IOException e) {
-                        throw new InternalError(e);
+                        throw new InternalError( e );
                     }
                 }
             }
@@ -465,15 +141,15 @@ public class JavapTask implements Messages {
                 printLines(getMessage("main.usage.summary", progname));
             }
             return EXIT_CMDERR;
-        } catch (InternalError e) {
+        } catch ( InternalError e ) { // this is the jadis internal error, rather than the one in java.lang
             Object[] e_args = new Object[0];
-//            if (e.getCause() == null)
-//                e_args = e.args;
-//            else {
-//                e_args = new Object[e.args.length + 1];
-//                e_args[0] = e.getCause();
-//                System.arraycopy(e.args, 0, e_args, 1, e.args.length);
-//            }
+            if (e.getCause() == null)
+                e_args = e.args;
+            else {
+                e_args = new Object[e.args.length + 1];
+                e_args[0] = e.getCause();
+                System.arraycopy(e.args, 0, e_args, 1, e.args.length);
+            }
             reportError("err.internal.error", e_args);
             return EXIT_ABNORMAL;
         } finally {
@@ -481,20 +157,9 @@ public class JavapTask implements Messages {
         }
     }
 
-    public void handleOptions(String[] args) throws BadArgs {
-        handleOptions(Arrays.asList(args), true);
-    }
-
-    private void handleOptions(Iterable<String> args, boolean allowClasses) throws BadArgs {
-        if (log == null) {
-            log = getPrintWriterForStream(System.out);
+    private void handleOptions( Iterable<String> args, boolean allowClasses ) throws BadArgs {
             if (diagnosticListener == null)
-              diagnosticListener = getDiagnosticListenerForStream(System.err);
-        } else {
-            if (diagnosticListener == null)
-              diagnosticListener = getDiagnosticListenerForWriter(log);
-        }
-
+              diagnosticListener = getDiagnosticListenerForWriter( log );
 
 //        if (fileManager == null)
 //            fileManager = getDefaultFileManager(diagnosticListener, log);
@@ -565,10 +230,6 @@ public class JavapTask implements Messages {
         }
 
         throw new BadArgs("err.unknown.option", name).showUsage(true);
-    }
-
-    public Boolean call() {
-        return run() == 0;
     }
 
     public int run() {
@@ -805,110 +466,6 @@ public class JavapTask implements Messages {
 
         return null;
     }
-
-//    public static class ClassFileInfo {
-//        ClassFileInfo(JavaFileObject fo, ClassFile cf, byte[] digest, int size) {
-//            this.fo = fo;
-//            this.cf = cf;
-//            this.digest = digest;
-//            this.size = size;
-//        }
-//        public final JavaFileObject fo;
-//        public final ClassFile cf;
-//        public final byte[] digest;
-//        public final int size;
-//    }
-
-//    public ClassFileInfo read(JavaFileObject fo) throws IOException, ConstantPoolException {
-//        InputStream in = fo.openInputStream();
-//        try {
-//            SizeInputStream sizeIn = null;
-//            MessageDigest md  = null;
-//            if (options.sysInfo || options.verbose) {
-//                try {
-//                    md = MessageDigest.getInstance("SHA-256");
-//                } catch (NoSuchAlgorithmException ignore) {
-//                }
-//                in = new DigestInputStream(in, md);
-//                in = sizeIn = new SizeInputStream(in);
-//            }
-//
-//            ClassFile cf = ClassFile.read(in, attributeFactory);
-//            byte[] digest = (md == null) ? null : md.digest();
-//            int size = (sizeIn == null) ? -1 : sizeIn.size();
-//            return new ClassFileInfo(fo, cf, digest, size);
-//        } finally {
-//            in.close();
-//        }
-//    }
-
-//    public void write(ClassFileInfo info) {
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        if (options.sysInfo || options.verbose) {
-//            classWriter.setFile(info.fo.toUri());
-//            classWriter.setLastModified(info.fo.getLastModified());
-//            classWriter.setDigest("SHA-256", info.digest);
-//            classWriter.setFileSize(info.size);
-//        }
-//
-//        classWriter.write(info.cf);
-//    }
-//
-//    protected void setClassFile(ClassFile classFile) {
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        classWriter.setClassFile(classFile);
-//    }
-//
-//    protected void setMethod(Method enclosingMethod) {
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        classWriter.setMethod(enclosingMethod);
-//    }
-//
-//    protected void write(Attribute value) {
-//        AttributeWriter attrWriter = AttributeWriter.instance(context);
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        ClassFile cf = classWriter.getClassFile();
-//        attrWriter.write(cf, value, cf.constant_pool);
-//    }
-//
-//    protected void write(Attributes attrs) {
-//        AttributeWriter attrWriter = AttributeWriter.instance(context);
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        ClassFile cf = classWriter.getClassFile();
-//        attrWriter.write(cf, attrs, cf.constant_pool);
-//    }
-//
-//    protected void write(ConstantPool constant_pool) {
-//        ConstantWriter constantWriter = ConstantWriter.instance(context);
-//        constantWriter.writeConstantPool(constant_pool);
-//    }
-//
-//    protected void write(ConstantPool constant_pool, int value) {
-//        ConstantWriter constantWriter = ConstantWriter.instance(context);
-//        constantWriter.write(value);
-//    }
-//
-//    protected void write(ConstantPool.CPInfo value) {
-//        ConstantWriter constantWriter = ConstantWriter.instance(context);
-//        constantWriter.println(value);
-//    }
-//
-//    protected void write(Field value) {
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        classWriter.writeField(value);
-//    }
-//
-//    protected void write(Method value) {
-//        ClassWriter classWriter = ClassWriter.instance(context);
-//        classWriter.writeMethod(value);
-//    }
-//
-//    private JavaFileManager getDefaultFileManager(final DiagnosticListener<? super JavaFileObject> dl, PrintWriter log) {
-//        if (defaultFileManager == null)
-//            defaultFileManager = JavapFileManager.create(dl, log);
-//        return defaultFileManager;
-//    }
-
     private JavaFileObject getClassFileObject(String className) throws IOException {
         try {
             JavaFileObject fo;
@@ -986,7 +543,7 @@ public class JavapTask implements Messages {
 
     private static final String nl = System.getProperty("line.separator");
 
-    private static final String versionRBName = "com.sun.tools.javap.resources.version";
+    private static final String versionRBName = "org.jacobin.jadis.resources.version";
     private static ResourceBundle versionRB;
 
     private String version(String key) {
@@ -1095,9 +652,8 @@ public class JavapTask implements Messages {
         try {
             return MessageFormat.format(b.getString(key), args);
         } catch (MissingResourceException e) {
-//            throw new InternalError(e, key);
+            throw new InternalError(e, key);
         }
-        return MessageFormat.format(b.getString(key), args); // ALB to quiet the compiler
     }
 
     protected Context context;
@@ -1140,5 +696,23 @@ public class JavapTask implements Messages {
         }
 
         private int size;
+    }
+
+    public class BadArgs extends Exception {
+        static final long serialVersionUID = 8765093759964640721L;
+        BadArgs(String key, Object... args) {
+            super(JavapTask.this.getMessage(key, args));
+            this.key = key;
+            this.args = args;
+        }
+
+        BadArgs showUsage(boolean b) {
+            showUsage = b;
+            return this;
+        }
+
+        final String key;
+        final Object[] args;
+        boolean showUsage;
     }
 }
