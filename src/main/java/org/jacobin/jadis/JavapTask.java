@@ -652,7 +652,7 @@ public class JavapTask implements Messages {
         try {
             return MessageFormat.format(b.getString(key), args);
         } catch (MissingResourceException e) {
-            throw new InternalError(e, key);
+            throw new InternalError( e, key );
         }
     }
 
@@ -671,7 +671,7 @@ public class JavapTask implements Messages {
 
     private static final String progname = "javap";
 
-    private static class SizeInputStream extends FilterInputStream {
+    private static class SizeInputStream extends FilterInputStream { //note: used by presenty ALB-commented out code
         SizeInputStream(InputStream in) {
             super(in);
         }
@@ -700,19 +700,20 @@ public class JavapTask implements Messages {
 
     public class BadArgs extends Exception {
         static final long serialVersionUID = 8765093759964640721L;
-        BadArgs(String key, Object... args) {
-            super(JavapTask.this.getMessage(key, args));
-            this.key = key;
-            this.args = args;
-        }
-
-        BadArgs showUsage(boolean b) {
-            showUsage = b;
-            return this;
-        }
 
         final String key;
         final Object[] args;
         boolean showUsage;
+
+        BadArgs( String key, Object... args ) {
+            super( JavapTask.this.getMessage( key, args ));
+            this.key = key;
+            this.args = args;
+        }
+
+        BadArgs showUsage( boolean b ) {
+            showUsage = b;
+            return this;
+        }
     }
 }
