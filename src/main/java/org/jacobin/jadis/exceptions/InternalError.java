@@ -13,20 +13,21 @@
 package org.jacobin.jadis.exceptions;
 
 /**
- * javap uses its own version of InternalError, rather than
- * the java.lang.InternalError in the standard library
+ * javap uses its own version of InternalError (this class),
+ * rather than java.lang.InternalError in the standard library
  */
 public class InternalError extends Error {
     private static final long serialVersionUID = 8114054446416187030L;
-    public InternalError(Throwable t, Object... args) {
-        super("Internal error", t);
-        this.args = args;
-    }
-
-    public InternalError(Object... args) {
-        super("Internal error");
-        this.args = args;
-    }
 
     public final Object[] args;
+
+    public InternalError( Throwable t, Object... args ) {
+        super("Internal error", t );
+        this.args = args;
+    }
+
+    public InternalError( Object... args ) {
+        super( "Internal error" );
+        this.args = args;
+    }
 }
